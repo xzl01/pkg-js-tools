@@ -21,21 +21,28 @@ pod2usage(
 
   # $ regexp-assemble <<EOF
   # link_test_modules
+  # link_external_modules
+  # link_internal_modules
   # link_build_modules
   # clean_test_modules
+  # clean_external_modules
+  # clean_internal_modules
   # clean_build_modules
   # ln
   # components_list
   # modules_list
+  # root_components_list
+  # root_modules_list
   # pjson
   # main
+  # normalize_name
   # -h
   # -v
   # --help
   # --version
   # EOF
   unless $cmd =~
-/^(?:c(?:lean_(?:build|test)_modules|omponents_list)|l(?:ink_(?:build|test)_modules|n)|-(?:[hv]|-(?:version|help))|m(?:odules_list|ain)|pjson)/;
+/^(?:c(?:lean_(?:(?:ex|in)ternal|build|test)_modules|omponents_list)|l(?:ink_(?:(?:ex|in)ternal|build|test)_modules|n)|root_(?:component|module)s_list|-(?:[hv]|-(?:version|help))|m(?:odules_list|ain)|normalize_name|pjson)$/;
 
 our $obj = bless {}, 'Debian::PkgJs::Utils';
 
@@ -51,12 +58,22 @@ use constant _sub => {
     },
     components_list => sub {
         my $res = $obj->component_list;
-        return join( '', map { "$_\n" } sort keys %$res );
+        return join( "\n", sort keys %$res );
     },
     modules_list => sub {
         my $res = $obj->component_list;
-        return
-          join( '', map { $obj->pjson($_)->{name} . "\n" } sort keys %$res );
+        return join( "\n", sort values %$res );
+    },
+    normalize_name => sub {
+        return $obj->normalize_name(@ARGV);
+    },
+    root_components_list => sub {
+        my $res = $obj->root_components_list;
+        return join( "\n", sort keys %$res );
+    },
+    root_modules_list => sub {
+        my $res = $obj->root_components_list;
+        return join( "\n", sort values %$res );
     },
     pjson => sub {
         my $cmp = shift(@ARGV) || '.';
@@ -97,13 +114,32 @@ use constant _sub => {
     },
     ln => sub {
         my $mod = shift @ARGV;
+        die 'Missing arg' unless $mod;
+        my $displayName = $mod;
+        if ( $mod eq '-t' ) {
+            $mod                          = shift @ARGV;
+            $Debian::PkgJs::Utils::WANTTS = 1;
+            $displayName                  = "(TS) $mod";
+        }
         my $res = $obj->ln($mod);
-        return "'$mod' linked into node_modules" if $res;
-        print STDERR "Unable to link $mod: $!";
+        if ($res) {
+            return $res < 0
+              ? "$displayName exists"
+              : "$displayName linked into node_modules";
+        }
+        print STDERR "Unable to link $mod: $!\n";
         exit 1;
     },
     link_build_modules => sub {
         $obj->link_build_modules;
+        return '';
+    },
+    link_external_modules => sub {
+        $obj->link_external_modules;
+        return '';
+    },
+    link_internal_modules => sub {
+        $obj->link_internal_modules;
         return '';
     },
     link_test_modules => sub {
@@ -112,6 +148,14 @@ use constant _sub => {
     },
     clean_build_modules => sub {
         $obj->clean_build_modules;
+        return '';
+    },
+    clean_external_modules => sub {
+        $obj->clean_external_modules;
+        return '';
+    },
+    clean_internal_modules => sub {
+        $obj->clean_internal_modules;
         return '';
     },
     clean_test_modules => sub {
@@ -123,6 +167,10 @@ use constant _sub => {
 _sub->{'--version'} = _sub->{'-v'};
 _sub->{'--help'}    = _sub->{'-h'};
 
+if ( $cmd =~ /_list$/ ) {
+    $OPTS->{lerna} =
+      !search_bd_in_debian_control(qr/^dh-sequence-nodejs-no-lerna$/);
+}
 my $res = _sub->{$cmd}->();
 chomp $res;
 print $res. ( $res =~ /./ ? "\n" : '' );
@@ -168,11 +216,51 @@ pkgjs-utils - Nodejs package utilities
     # prints: '@types/node' linked into node_modules
   $ pkgjs-ln @types/node
     # same as pkgjs-utils ln @types/node
+  $ pkgjs-utils normalize_name @types/node
+    # prints: types-node
 
 =head1 DESCRIPTION
 
 Collection of little commands to read <component>/package.json overridden by
 debian/nodejs/<component>/* files.
+
+=head2 Available commands
+
+=over
+
+=item B<link_test_modules>
+
+=item B<link_external_modules>
+
+=item B<link_internal_modules>
+
+=item B<link_build_modules>
+
+=item B<clean_test_modules>
+
+=item B<clean_external_modules>
+
+=item B<clean_internal_modules>
+
+=item B<clean_build_modules>
+
+=item B<ln>
+
+=item B<components_list>
+
+=item B<modules_list>
+
+=item B<pjson>
+
+=item B<main>
+
+=item B<normalize_name>
+
+=item B<-h> B<--help>
+
+=item B<-v> B<--version>
+
+=back
 
 =head1 AUTHOR
 

@@ -1,0 +1,12 @@
+authors?
+authors?\.md
+authors?\.txt
+readme
+readme.*\.txt
+readme.*\.md
+readme.*\.markdown
+contributing\.md
+maintaining\.md
+security\.md
+notice
+notice\.txt
